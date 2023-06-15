@@ -27,6 +27,11 @@ create rgb 9 9 3 * * allot
 : VDU ( ---)
 23 EMIT 27 EMIT ;
 
+: FG ( c ---)
+  17 EMIT EMIT ;
+: BG ( c ---)
+  17 EMIT 128 + EMIT ;
+
 : SELECT-BITMAP ( n ---)
 \G Select bitmap for preceding operations
 VDU 0 EMIT EMIT ;
@@ -63,7 +68,7 @@ R> R> R>
 LOAD-BITMAP-RGB ;
 
 S" bitmaps/wall.rgb" rgb 9 9 $23 LOAD-BITMAP
-S" bitmaps/space.rgb" rgb 9 9 $0 LOAD-BITMAP
+S" bitmaps/blank.rgb" rgb 9 9 $0 LOAD-BITMAP
 S" bitmaps/goal.rgb" rgb 9 9 $2E LOAD-BITMAP
 S" bitmaps/loot.rgb" rgb 9 9 $24 LOAD-BITMAP
 S" bitmaps/soko.rgb" rgb 9 9 $40 LOAD-BITMAP
@@ -84,9 +89,9 @@ depth 0 do drop loop ;
 : .BITMAP ( ---)
 32 0 DO
 20 0 DO
-map i + j + C@
+map i + j 20 * + C@
 SELECT-BITMAP
-9 i * 9 j * DRAW-BITMAP
+9 j * 9 i * DRAW-BITMAP
 LOOP
 LOOP
 ;
