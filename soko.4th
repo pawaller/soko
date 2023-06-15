@@ -1,50 +1,87 @@
 \ sokoban by pawaller 01/06/2023	
-2 MODE
-CUROFF
+
 1 CAPS
 0 VALUE moves
 0 VALUE goals
 0 VALUE flag 
 1 VALUE level
-
-
 create map 400 allot
 create rgb 9 9 3 * * allot
 
-: clear-stack (  ---)
-\G Clears the stack.
-depth 0 do drop loop ;
+: CUROFF ( ---)
+\G Switch cursor off
+  23 EMIT 1 EMIT 0 EMIT ;
 
-: LOAD-BITMAP ( pathtofile tempspace x y n ) \ s"bitmaps/wall9.rgb" rgb 9 9 1
-SELECT-BITMAP \ str-addr str-count rgb 9 9 
-4 ROLL \ str-count rgb 9 9 str-addr
-4 ROLL \ rgb 9 9 str-addr str-count
-OSSTRING >ASCIIZ \ rgb 9 9  
-2DUP \ rgb 9 9 9 9 
->R >R \ rgb 9 9
-3 * * \ rgb 243
-SWAP \ 243 rgb
-DUP \ 243 rgb rgb
->R \ 243 rgb
-SWAP \ rgb 243
-OSSTRING \ rgb 243 osstring
- -ROT        \ osstring rgb 243
-1 OSCALL -38 ?THROW \ load file into tempspace
-R> R> R> \ rgb 9 9 
-LOAD-BITMAP-RGB
-;
+: CURON ( ---)
+\G Switch cursor on
+  23 EMIT 1 EMIT 1 EMIT ;
+
+: MODE ( n ---)
+\G Select graphics mode
+  22 EMIT DUP EMIT ;
+
+: 2EMIT ( n ---)
+\G EMIT n as two characters, LSB first.
+  DUP 8 RSHIFT SWAP EMIT EMIT ;
+
+: VDU ( ---)
+23 EMIT 27 EMIT ;
+
+: SELECT-BITMAP ( n ---)
+\G Select bitmap for preceding operations
+VDU 0 EMIT EMIT ;
+
+: LOAD-BITMAP-RGB ( data w h --)
+\G Load selected bitmap with data in rgb format
+VDU 1 EMIT \ load bitmap
+2DUP 2EMIT 2EMIT \ width & height
+* 3 * 0 DO
+DUP i + C@ EMIT
+DUP i + 1+ C@ EMIT
+DUP i + 2+ C@ EMIT
+255 EMIT
+3 +LOOP 
+DROP ;
+
+: DRAW-BITMAP ( y x ---)
+\G Draw selected bitmap on screen at x y coordinates
+VDU 3 EMIT 2EMIT 2EMIT ;
+
+: LOAD-BITMAP ( pathtofile tempspace x y n )
+SELECT-BITMAP 
+4 ROLL 4 ROLL
+OSSTRING >ASCIIZ  
+2DUP 
+>R >R 
+3 * * 
+SWAP DUP 
+>R 
+SWAP 
+OSSTRING
+ -ROT 1 OSCALL -38 ?THROW
+R> R> R>
+LOAD-BITMAP-RGB ;
 
 S" bitmaps/wall.rgb" rgb 9 9 $23 LOAD-BITMAP
+S" bitmaps/space.rgb" rgb 9 9 $0 LOAD-BITMAP
+S" bitmaps/goal.rgb" rgb 9 9 $2E LOAD-BITMAP
+S" bitmaps/loot.rgb" rgb 9 9 $24 LOAD-BITMAP
+S" bitmaps/soko.rgb" rgb 9 9 $40 LOAD-BITMAP
+S" bitmaps/log.rgb" rgb 9 9 $2A LOAD-BITMAP
 
 s" levels\levelxx.bin" osstring >asciiz \ put path in buffer
 
-: load_map ( ---)
+: LOAD-MAP ( ---)
 level s>d <# # # #> \ convert current level number into 2 char string
-osstring 12 + swap cmove \ inject that string into filepath
-map 400 osstring rot rot 1 oscall -38 ?throw \ load level into map
+OSSTRING 12 + SWAP CMOVE \ inject that string into filepath
+map 400 OSSTRING ROT ROT 1 OSCALL -38 ?THROW \ load level into map
 ;
 
-: .bitmap ( ---)
+: CLEAR-STACK (  ---)
+\G Clears the stack.
+depth 0 do drop loop ;
+
+: .BITMAP ( ---)
 32 0 DO
 20 0 DO
 map i + j + C@
@@ -54,19 +91,19 @@ LOOP
 LOOP
 ;
 
-: .map ( --)
+: .MAP ( --)
 \ page
 0 0 AT-XY
 20 20 * 0 DO
 20 0 DO
 map i + j + C@
-DUP $40 = IF 3 fg EMIT else
+DUP $40 = IF 3 fg EMIT ELSE
 DUP $2E = IF 4 fg EMIT else
 DUP $24 = IF 2 fg EMIT else
 DUP $23 = IF 1 fg EMIT else
 DUP $2A = IF 2 fg EMIT else
 DUP 0 = if 32 emit drop else emit then then then then then then
-loop
+LOOP
 cr 
 20 +loop
 7 fg ." Level: " level .
@@ -184,16 +221,17 @@ page
 .map
 ;
 
-: soko ( --)
-
+: SOKO ( --)
 begin
+2 MODE
+CUROFF
 start_level
 begin
 find_soko
 move_soko
 rules
 find_goals
-.map
+.MAP
 goals 0=
 until
 level 1+ to level
