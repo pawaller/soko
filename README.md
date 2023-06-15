@@ -1,2 +1,2 @@
 # soko
-Sokoban written in Agon. Forth
+Sokoban written in Forth for the Agon Computer
