@@ -5,8 +5,10 @@
 0 VALUE goals
 0 VALUE flag 
 1 VALUE level
-create map 400 allot
-create rgb 9 9 3 * * allot
+20 VALUE md \ map dimensions
+9 VALUE bd \ bitmap dimensions
+create map md DUP * ALLOT
+create rgb bd DUP * 3 * ALLOT
 
 : CUROFF ( ---)
 \G Switch cursor off
@@ -37,7 +39,7 @@ create rgb 9 9 3 * * allot
 VDU 0 EMIT EMIT ;
 
 : LOAD-BITMAP-RGB ( data w h --)
-\G Load selected bitmap with data in rgb format
+\G Load current bitmap with data in rgb format
 VDU 1 EMIT \ load bitmap
 2DUP 2EMIT 2EMIT \ width & height
 * 3 * 0 DO
@@ -52,7 +54,7 @@ DROP ;
 \G Draw selected bitmap on screen at x y coordinates
 VDU 3 EMIT 2EMIT 2EMIT ;
 
-: LOAD-BITMAP ( pathtofile tempspace x y n )
+: LOAD-BITMAP ( pathtofile tempspace x y n --- data w h )
 SELECT-BITMAP 
 4 ROLL 4 ROLL
 OSSTRING >ASCIIZ  
@@ -67,58 +69,52 @@ OSSTRING
 R> R> R>
 LOAD-BITMAP-RGB ;
 
-S" bitmaps/wall.rgb" rgb 9 9 $23 LOAD-BITMAP
-S" bitmaps/blank.rgb" rgb 9 9 $0 LOAD-BITMAP
-S" bitmaps/goal.rgb" rgb 9 9 $2E LOAD-BITMAP
-S" bitmaps/loot.rgb" rgb 9 9 $24 LOAD-BITMAP
-S" bitmaps/soko.rgb" rgb 9 9 $40 LOAD-BITMAP
-S" bitmaps/log.rgb" rgb 9 9 $2A LOAD-BITMAP
+S" bitmaps/wall.rgb" rgb bd DUP  $23 LOAD-BITMAP
+S" bitmaps/blank.rgb" rgb bd DUP $0 LOAD-BITMAP
+S" bitmaps/goal.rgb" rgb bd DUP $2E LOAD-BITMAP
+S" bitmaps/loot.rgb" rgb bd DUP $24 LOAD-BITMAP
+S" bitmaps/soko.rgb" rgb bd DUP $40 LOAD-BITMAP
+S" bitmaps/log.rgb" rgb bd DUP $2A LOAD-BITMAP
 
-s" levels\levelxx.bin" osstring >asciiz \ put path in buffer
+
 
 : LOAD-MAP ( ---)
+s" levels\levelxx.bin" osstring >asciiz \ put path in buffer
 level s>d <# # # #> \ convert current level number into 2 char string
 OSSTRING 12 + SWAP CMOVE \ inject that string into filepath
-map 400 OSSTRING ROT ROT 1 OSCALL -38 ?THROW \ load level into map
+map md DUP * OSSTRING ROT ROT 1 OSCALL -38 ?THROW \ load level into map
 ;
 
 : CLEAR-STACK (  ---)
 \G Clears the stack.
 depth 0 do drop loop ;
 
-: .BITMAP ( ---)
+: .MAP ( ---)
+PAGE
 32 0 DO
 20 0 DO
-map i + j 20 * + C@
+map i + j md * + C@
 SELECT-BITMAP
-9 j * 9 i * DRAW-BITMAP
+bd j * bd i * DRAW-BITMAP
 LOOP
 LOOP
 ;
 
-: .MAP ( --)
-\ page
-0 0 AT-XY
-20 20 * 0 DO
+: .REFRESH ( ---)
+32 0 DO
 20 0 DO
-map i + j + C@
-DUP $40 = IF 3 fg EMIT ELSE
-DUP $2E = IF 4 fg EMIT else
-DUP $24 = IF 2 fg EMIT else
-DUP $23 = IF 1 fg EMIT else
-DUP $2A = IF 2 fg EMIT else
-DUP 0 = if 32 emit drop else emit then then then then then then
+map i + j md * + C@
+DUP $23 <> if
+SELECT-BITMAP
+bd j * bd i * DRAW-BITMAP
+THEN
 LOOP
-cr 
-20 +loop
-7 fg ." Level: " level .
-5 fg ." Moves: " moves .
-6 fg ." Goals: " goals .
+LOOP
 ;
 
 
 : find_soko ( -- p) \ address of soko in map
-20 20 * 0 do
+md DUP * 0 do
 map i + 
 c@ $40 = if map i + then
 loop
@@ -127,7 +123,7 @@ loop
 
 : find_goals ( --) \ number of uncovered goals in map
 0 to goals
-20 20 * 0 do
+md DUP * 0 do
 map i + 
 c@ $2E = if goals 1+ to goals then
 loop
@@ -135,23 +131,23 @@ flag $2E = if goals 1+ to goals then
 ;
 
 : soko_up ( p  -- p p1 p2)
-dup 20 - 
-dup 20 - 
+DUP mode - 
+DUP md - 
 ;
 
 : soko_down ( p -- p p1 p2) 
-dup 20 + 
-dup 20 + 
+DUP md + 
+DUP md + 
 ;
 
 : soko_left ( p -- p p1 p2)
-dup 1 - 
-dup 1 - 
+DUP 1 - 
+DUP 1 - 
 ;
 
 : soko_right ( p -- p p1 p2)
-dup 1 + 
-dup 1 + 
+DUP 1 + 
+DUP 1 + 
 ;
 
 
@@ -168,52 +164,52 @@ endcase
 ;
 
 : soko2p1 ( p p2 p1 -- )
-$40 swap c! 
+$40 SWAP c! 
 drop 
-flag swap c! 
+flag SWAP c! 
 moves 1+ to moves
 ;
 
 : loot2p2 ( p p1 p2 -- p p1 p2)
-dup dup 
-c@ $2E = if $2A swap c! 
-else $24 swap c!
+DUP DUP 
+c@ $2E = if $2A SWAP c! 
+else $24 SWAP c!
 then
 ;
 
 : lootongoal2p2 ( p p1 p2 -- p p1 p2)
-dup 
-$2A swap c! 
-swap dup 
-$2E swap c!
-swap
+DUP
+$2A SWAP c! 
+SWAP DUP 
+$2E SWAP c!
+SWAP
 ;
 
 
 : p2valid? ( p p2 p1 -- f)
-swap 
-dup 
-dup 
+SWAP 
+DUP 
+DUP 
 c@ 0 = 
-swap 
+SWAP 
 c@ $2E = 
 or 
 ;
 
 : rules ( p p1 p2 --)
-swap 
-dup 
+SWAP 
+DUP 
 c@ 
 case 
 0   of soko2p1 0 to flag endof 
 $2E of soko2p1 $2E to flag endof 
 $24 of p2valid? 
  if 
-loot2p2 swap soko2p1 then endof 
+loot2p2 SWAP soko2p1 then endof 
 $2A of p2valid? 
  if 
  lootongoal2p2 
-swap soko2p1 $2E to flag then endof 
+SWAP soko2p1 $2E to flag then endof 
 endcase
 clear-stack
 ;
