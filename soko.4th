@@ -1,6 +1,6 @@
 \ sokoban by pawaller 01/06/2023	
 
-1 CAPS
+CAPS ON
 0 VALUE moves
 0 VALUE goals
 0 VALUE flag 
@@ -11,7 +11,7 @@ create map md DUP * ALLOT
 create rgb bd DUP * 3 * ALLOT
 
 : CUROFF ( ---)
-\G Switch cursor off
+\G Switch cursor OFf
   23 EMIT 1 EMIT 0 EMIT ;
 
 : CURON ( ---)
@@ -51,10 +51,10 @@ DUP i + 2+ C@ EMIT
 DROP ;
 
 : DRAW-BITMAP ( y x ---)
-\G Draw selected bitmap on screen at x y coordinates
+\G Draw current bitmap on screen at x y coordinates
 VDU 3 EMIT 2EMIT 2EMIT ;
 
-: LOAD-BITMAP ( pathtofile tempspace x y n --- data w h )
+: LOAD-BITMAP ( pathtofile tempspace w h n --- data w h )
 SELECT-BITMAP 
 4 ROLL 4 ROLL
 OSSTRING >ASCIIZ  
@@ -87,7 +87,7 @@ map md DUP * OSSTRING ROT ROT 1 OSCALL -38 ?THROW \ load level into map
 
 : CLEAR-STACK (  ---)
 \G Clears the stack.
-depth 0 do drop loop ;
+depth 0 do DROP LOOP ;
 
 : .MAP ( ---)
 PAGE
@@ -112,69 +112,46 @@ LOOP
 LOOP
 ;
 
-
-: find_soko ( -- p) \ address of soko in map
+: FIND-SOKO ( -- p) \ address of soko in map
 md DUP * 0 do
-map i + 
-c@ $40 = if map i + then
-loop
+map i + C@
+$40 = IF map i + THEN
+LOOP
 ;
 
 
-: find_goals ( --) \ number of uncovered goals in map
+: FIND-GOALS ( --) \ number of uncovered goals in map
 0 to goals
 md DUP * 0 do
-map i + 
-c@ $2E = if goals 1+ to goals then
-loop
-flag $2E = if goals 1+ to goals then
+map i + C@
+$2E = IF goals 1+ to goals THEN
+LOOP
+flag $2E = IF goals 1+ to goals THEN ;
+
+: MOVE-SOKO ( p -- p p1 p2)
+KEY
+CASE
+11 OF DUP md - DUP md -  ENDOF
+10 OF DUP md + DUP md + ENDOF
+8 OF DUP 1- DUP 1- ENDOF
+21 OF DUP 1+ DUP 1+ ENDOF
+113 OF quit ENDOF \ q key pressed
+\ 114 OF start_level ENDOF \ r key pressed
+ENDCASE
 ;
 
-: soko_up ( p  -- p p1 p2)
-DUP mode - 
-DUP md - 
-;
-
-: soko_down ( p -- p p1 p2) 
-DUP md + 
-DUP md + 
-;
-
-: soko_left ( p -- p p1 p2)
-DUP 1 - 
-DUP 1 - 
-;
-
-: soko_right ( p -- p p1 p2)
-DUP 1 + 
-DUP 1 + 
-;
-
-
-: move_soko ( p -- p p1 p2)
-key
-case
-11 of soko_up endof
-10 of soko_down endof
-8 of soko_left endof
-21 of soko_right endof
-113 of quit endof \ q key pressed
-\ 114 of start_level endof \ r key pressed
-endcase
-;
-
-: soko2p1 ( p p2 p1 -- )
+: SOKO2P1 ( p p2 p1 -- )
 $40 SWAP c! 
-drop 
+DROP 
 flag SWAP c! 
 moves 1+ to moves
 ;
 
-: loot2p2 ( p p1 p2 -- p p1 p2)
+: LOOT2P2 ( p p1 p2 -- p p1 p2)
 DUP DUP 
-c@ $2E = if $2A SWAP c! 
-else $24 SWAP c!
-then
+c@ $2E = IF $2A SWAP c! 
+ELSE $24 SWAP c!
+THEN
 ;
 
 : lootongoal2p2 ( p p1 p2 -- p p1 p2)
@@ -186,7 +163,7 @@ SWAP
 ;
 
 
-: p2valid? ( p p2 p1 -- f)
+: P2VALID? ( p p2 p1 -- f)
 SWAP 
 DUP 
 DUP 
@@ -196,48 +173,48 @@ c@ $2E =
 or 
 ;
 
-: rules ( p p1 p2 --)
+: RULES ( p p1 p2 --)
 SWAP 
 DUP 
 c@ 
-case 
-0   of soko2p1 0 to flag endof 
-$2E of soko2p1 $2E to flag endof 
-$24 of p2valid? 
- if 
-loot2p2 SWAP soko2p1 then endof 
-$2A of p2valid? 
- if 
+CASE
+0   OF SOKO2P1 0 to flag ENDOF 
+$2E OF SOKO2P1 $2E to flag ENDOF 
+$24 OF P2VALID? 
+ IF
+LOOT2P2 SWAP SOKO2P1 THEN ENDOF 
+$2A OF P2VALID? 
+ IF
  lootongoal2p2 
-SWAP soko2p1 $2E to flag then endof 
-endcase
-clear-stack
+SWAP SOKO2P1 $2E to flag THEN ENDOF 
+ENDCASE
+CLEAR-STACK
 ;
 
-: start_level ( ---)
-clearstack
-load_map
+: START-LEVEL ( ---)
+CLEAR-STACK
+LOAD-MAP
 0 to moves
-page
-.map
+PAGE
+.MAP
 ;
 
 : SOKO ( --)
-begin
+BEGIN
 2 MODE
 CUROFF
-start_level
-begin
-find_soko
-move_soko
-rules
-find_goals
+START-LEVEL
+BEGIN
+FIND-SOKO
+MOVE-SOKO
+RULES
+FIND-GOALS
 .MAP
 goals 0=
-until
+UNTIL
 level 1+ to level
 level 6 =
-until
+UNTIL
 ;
 
 
