@@ -58,14 +58,9 @@ VDU 3 EMIT 2EMIT 2EMIT ;
 SELECT-BITMAP 
 4 ROLL 4 ROLL
 OSSTRING >ASCIIZ  
-2DUP 
->R >R 
-3 * * 
-SWAP DUP 
->R 
-SWAP 
-OSSTRING
- -ROT 1 OSCALL -38 ?THROW
+2DUP >R >R 
+3 * * SWAP DUP >R SWAP 
+OSSTRING -ROT 1 OSCALL -38 ?THROW
 R> R> R>
 LOAD-BITMAP-RGB ;
 
@@ -80,14 +75,14 @@ S" bitmaps/log.rgb" rgb bd DUP $2A LOAD-BITMAP
 
 : LOAD-MAP ( ---)
 s" levels\levelxx.bin" osstring >asciiz \ put path in buffer
-level s>d <# # # #> \ convert current level number into 2 char string
+level S>D <# # # #> \ convert current level number into 2 char string
 OSSTRING 12 + SWAP CMOVE \ inject that string into filepath
 map md DUP * OSSTRING ROT ROT 1 OSCALL -38 ?THROW \ load level into map
 ;
 
 : CLEAR-STACK (  ---)
 \G Clears the stack.
-depth 0 do DROP LOOP ;
+depth 0 DO DROP LOOP ;
 
 : .MAP ( ---)
 PAGE
@@ -104,7 +99,7 @@ LOOP
 32 0 DO
 20 0 DO
 map i + j md * + C@
-DUP $23 <> if
+DUP $23 <> IF
 SELECT-BITMAP
 bd j * bd i * DRAW-BITMAP
 THEN
@@ -154,7 +149,7 @@ ELSE $24 SWAP c!
 THEN
 ;
 
-: lootongoal2p2 ( p p1 p2 -- p p1 p2)
+: LOOTONGOAL2P2 ( p p1 p2 -- p p1 p2)
 DUP
 $2A SWAP c! 
 SWAP DUP 
@@ -164,28 +159,20 @@ SWAP
 
 
 : P2VALID? ( p p2 p1 -- f)
-SWAP 
-DUP 
-DUP 
-c@ 0 = 
-SWAP 
-c@ $2E = 
-or 
+SWAP DUP DUP 
+c@ 0 = SWAP 
+c@ $2E = or 
 ;
 
 : RULES ( p p1 p2 --)
-SWAP 
-DUP 
-c@ 
+SWAP DUP C@ 
 CASE
 0   OF SOKO2P1 0 to flag ENDOF 
 $2E OF SOKO2P1 $2E to flag ENDOF 
 $24 OF P2VALID? 
- IF
-LOOT2P2 SWAP SOKO2P1 THEN ENDOF 
+ IF LOOT2P2 SWAP SOKO2P1 THEN ENDOF 
 $2A OF P2VALID? 
- IF
- lootongoal2p2 
+ IF LOOTONGOAL2P2 
 SWAP SOKO2P1 $2E to flag THEN ENDOF 
 ENDCASE
 CLEAR-STACK
@@ -209,7 +196,7 @@ FIND-SOKO
 MOVE-SOKO
 RULES
 FIND-GOALS
-.MAP
+.REFRESH
 goals 0=
 UNTIL
 level 1+ to level
