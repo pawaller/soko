@@ -1,17 +1,21 @@
 \ sokoban by pawaller 01/06/2023	
 
 CAPS ON
+2 MODE
+CUROFF
+
+
+10 VALUE bd \ bitmap dimensions
+create map 640 ALLOT
+create rgb bd DUP * 3 * ALLOT
+create title 25 100 3 * * ALLOT
 0 VALUE moves
 0 VALUE goals
-0 VALUE flag 
+0 VALUE flag
 1 VALUE level
-20 VALUE md \ map dimensions
-9 VALUE bd \ bitmap dimensions
-create map md DUP * ALLOT
-create rgb bd DUP * 3 * ALLOT
 
 : CUROFF ( ---)
-\G Switch cursor OFf
+\G Switch cursor off
   23 EMIT 1 EMIT 0 EMIT ;
 
 : CURON ( ---)
@@ -20,7 +24,7 @@ create rgb bd DUP * 3 * ALLOT
 
 : MODE ( n ---)
 \G Select graphics mode
-  22 EMIT DUP EMIT ;
+  22 EMIT EMIT ;
 
 : 2EMIT ( n ---)
 \G EMIT n as two characters, LSB first.
@@ -31,8 +35,12 @@ create rgb bd DUP * 3 * ALLOT
 
 : FG ( c ---)
   17 EMIT EMIT ;
+
 : BG ( c ---)
   17 EMIT 128 + EMIT ;
+
+: VBL ( ---)
+SYSVARS xC@ BEGIN SYSVARS xC@ OVER <> UNTIL DROP ;
 
 : SELECT-BITMAP ( n ---)
 \G Select bitmap for preceding operations
@@ -58,92 +66,113 @@ VDU 3 EMIT 2EMIT 2EMIT ;
 SELECT-BITMAP 
 4 ROLL 4 ROLL
 OSSTRING >ASCIIZ  
-2DUP >R >R 
-3 * * SWAP DUP >R SWAP 
-OSSTRING -ROT 1 OSCALL -38 ?THROW
+2DUP 
+>R >R 
+3 * * 
+SWAP DUP 
+>R 
+SWAP 
+OSSTRING
+ -ROT 1 OSCALL -38 ?THROW
 R> R> R>
 LOAD-BITMAP-RGB ;
 
+: INIT ( ---)
+9 to level
+S" bitmaps/title.rgb" title 25 100 $01 LOAD-BITMAP
 S" bitmaps/wall.rgb" rgb bd DUP  $23 LOAD-BITMAP
 S" bitmaps/blank.rgb" rgb bd DUP $0 LOAD-BITMAP
 S" bitmaps/goal.rgb" rgb bd DUP $2E LOAD-BITMAP
 S" bitmaps/loot.rgb" rgb bd DUP $24 LOAD-BITMAP
 S" bitmaps/soko.rgb" rgb bd DUP $40 LOAD-BITMAP
-S" bitmaps/log.rgb" rgb bd DUP $2A LOAD-BITMAP
+S" bitmaps/loot.rgb" rgb bd DUP $2A LOAD-BITMAP
+;
 
-
+: CLEAR-STACK ( ---)
+\G Clears the stack
+DEPTH 0 do drop LOOP ;
 
 : LOAD-MAP ( ---)
 s" levels\levelxx.bin" osstring >asciiz \ put path in buffer
-level S>D <# # # #> \ convert current level number into 2 char string
+level s>d <# # # #> \ convert current level number into 2 char string
 OSSTRING 12 + SWAP CMOVE \ inject that string into filepath
-map md DUP * OSSTRING ROT ROT 1 OSCALL -38 ?THROW \ load level into map
+map 640 ERASE
+map 640 OSSTRING ROT ROT 1 OSCALL -38 ?THROW \ load level into map
 ;
 
-: CLEAR-STACK (  ---)
-\G Clears the stack.
-depth 0 DO DROP LOOP ;
+
+
 
 : .MAP ( ---)
 PAGE
-32 0 DO
 20 0 DO
-map i + j md * + C@
+32 0 DO
+map i + j 32 * + C@
 SELECT-BITMAP
 bd j * bd i * DRAW-BITMAP
 LOOP
-LOOP
-;
+LOOP ;
+
+: START-LEVEL ( ---)
+0 TO moves
+0 TO flag
+PAGE
+16 10 AT-XY 1 FG ." LEVEL " level .
+100 0 DO VBL LOOP
+LOAD-MAP
+.MAP ;
 
 : .REFRESH ( ---)
-32 0 DO
 20 0 DO
-map i + j md * + C@
+32 0 DO
+map i + j 32 * + C@
 DUP $23 <> IF
 SELECT-BITMAP
 bd j * bd i * DRAW-BITMAP
+ELSE DROP
 THEN
 LOOP
-LOOP
+LOOP 
 ;
 
 : FIND-SOKO ( -- p) \ address of soko in map
-md DUP * 0 do
+640 0 DO
 map i + C@
 $40 = IF map i + THEN
-LOOP
-;
+LOOP ;
 
 
 : FIND-GOALS ( --) \ number of uncovered goals in map
 0 to goals
-md DUP * 0 do
+640 0 do
 map i + C@
 $2E = IF goals 1+ to goals THEN
 LOOP
 flag $2E = IF goals 1+ to goals THEN ;
 
-: MOVE-SOKO ( p -- p p1 p2)
+: CHECK-KEYS ( p -- p p1 p2)
 KEY
 CASE
-11 OF DUP md - DUP md -  ENDOF
-10 OF DUP md + DUP md + ENDOF
+11 OF DUP 32 - DUP 32 -  ENDOF
+10 OF DUP 32 + DUP 32 + ENDOF
 8 OF DUP 1- DUP 1- ENDOF
 21 OF DUP 1+ DUP 1+ ENDOF
-113 OF quit ENDOF \ q key pressed
-\ 114 OF start_level ENDOF \ r key pressed
+27 OF PAGE 1 to level 1 MODE CURON QUIT ENDOF \ esc
+114 OF START-LEVEL ENDOF \ r
 ENDCASE
 ;
+
 
 : SOKO2P1 ( p p2 p1 -- )
 $40 SWAP c! 
 DROP 
 flag SWAP c! 
-moves 1+ to moves
+moves 1+ TO moves
 ;
 
 : LOOT2P2 ( p p1 p2 -- p p1 p2)
-DUP DUP 
+DUP
+DUP 
 c@ $2E = IF $2A SWAP c! 
 ELSE $24 SWAP c!
 THEN
@@ -152,58 +181,83 @@ THEN
 : LOOTONGOAL2P2 ( p p1 p2 -- p p1 p2)
 DUP
 $2A SWAP c! 
-SWAP DUP 
-$2E SWAP c!
-SWAP
+ SWAP DUP 
+ $2E SWAP c!
+ SWAP
 ;
 
 
 : P2VALID? ( p p2 p1 -- f)
-SWAP DUP DUP 
-c@ 0 = SWAP 
-c@ $2E = or 
+SWAP 
+DUP 
+DUP 
+c@ 0 = 
+SWAP  
+c@ $2E = 
+or 
 ;
 
 : RULES ( p p1 p2 --)
-SWAP DUP C@ 
-CASE
+SWAP 
+DUP 
+c@ 
+CASE \ P1=?
 0   OF SOKO2P1 0 to flag ENDOF 
 $2E OF SOKO2P1 $2E to flag ENDOF 
 $24 OF P2VALID? 
- IF LOOT2P2 SWAP SOKO2P1 THEN ENDOF 
+ IF
+LOOT2P2 SWAP SOKO2P1 THEN ENDOF 
 $2A OF P2VALID? 
- IF LOOTONGOAL2P2 
-SWAP SOKO2P1 $2E to flag THEN ENDOF 
+ IF
+ LOOTONGOAL2P2 
+SWAP SOKO2P1 
+$2E to flag 
+THEN ENDOF 
 ENDCASE
-CLEAR-STACK
 ;
 
-: START-LEVEL ( ---)
-CLEAR-STACK
-LOAD-MAP
-0 to moves
+
+: SPLASH ( ---)
 PAGE
-.MAP
-;
+10 10 AT-XY 3 FG ." Cursor Keys to move"
+14 14 AT-XY 3 FG ." ESC to QUIT"
+10 12 AT-XY 3 FG ." R to RESTART level"
+13 16 AT-XY 1 FG ." Press any key"
+1 SELECT-BITMAP
+50 105 DRAW-BITMAP
+KEY DROP ;
+
+: GAME-OVER ( ---)
+PAGE
+12 10 AT-XY 1 FG ." Game Over "
+KEY
+DROP ;
+
 
 : SOKO ( --)
-BEGIN
+INIT
 2 MODE
 CUROFF
+SPLASH
+BEGIN
 START-LEVEL
 BEGIN
 FIND-SOKO
-MOVE-SOKO
+CHECK-KEYS
 RULES
-FIND-GOALS
 .REFRESH
+FIND-GOALS
 goals 0=
 UNTIL
 level 1+ to level
-level 6 =
+level 11 =
 UNTIL
+GAME-OVER
+CURON
+1 MODE
 ;
 
+SOKO
 
  
  
