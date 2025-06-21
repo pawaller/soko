@@ -1,14 +1,14 @@
 \ sokoban by pawaller 01/06/2023	
 
 CAPS ON
-2 MODE
-CUROFF
+8 MODE
+0 CURSOR
 
 
 10 VALUE bd \ bitmap dimensions
-create map 640 ALLOT
-create rgb bd DUP * 3 * ALLOT
-create title 25 100 3 * * ALLOT
+create map 640 ALLOT \ assign memory for map
+create rgb bd DUP * 3 * ALLOT \ assign memory for bitmap
+create title 25 100 3 * * ALLOT \ assign memory for title image
 0 VALUE moves
 0 VALUE goals
 0 VALUE flag
@@ -22,6 +22,10 @@ create title 25 100 3 * * ALLOT
 \G Switch cursor on
   23 EMIT 1 EMIT 1 EMIT ;
 
+: CURSOR ( f ---)
+\G Ser cursor visibility by flag f.
+    23EMIT 1 EMIT IF 1 ELSE 0 THEN EMIT ;  
+
 : MODE ( n ---)
 \G Select graphics mode
   22 EMIT EMIT ;
@@ -33,6 +37,9 @@ create title 25 100 3 * * ALLOT
 : VDU ( ---)
 23 EMIT 27 EMIT ;
 
+: GXR ( ---)
+23 EMIT 27 EMIT ;
+
 : FG ( c ---)
   17 EMIT EMIT ;
 
@@ -42,13 +49,16 @@ create title 25 100 3 * * ALLOT
 : VBL ( ---)
 SYSVARS xC@ BEGIN SYSVARS xC@ OVER <> UNTIL DROP ;
 
-: SELECT-BITMAP ( n ---)
-\G Select bitmap for preceding operations
-VDU 0 EMIT EMIT ;
+: VWAIT ( ---)
+\G Wait for system vertical blank as is done in BBC basic.
+    0 SYSVARS@
+    BEGIN DUP 0 SYSVARS@ = WHILE REPEAT DROP ; 
 
-: LOAD-BITMAP-RGB ( data w h --)
-\G Load current bitmap with data in rgb format
-VDU 1 EMIT \ load bitmap
+: SELECT-BITMAP ( n ---) \ Select bitmap for preceding operations
+GXR 0 EMIT EMIT ;
+
+: LOAD-BITMAP-RGB ( data width height --) \ Load current bitmap with data in rgb format
+GXR 1 EMIT \ load bitmap
 2DUP 2EMIT 2EMIT \ width & height
 * 3 * 0 DO
 DUP i + C@ EMIT
@@ -58,11 +68,10 @@ DUP i + 2+ C@ EMIT
 3 +LOOP 
 DROP ;
 
-: DRAW-BITMAP ( y x ---)
-\G Draw current bitmap on screen at x y coordinates
-VDU 3 EMIT 2EMIT 2EMIT ;
+: DRAW-BITMAP ( y x ---) \ Draw current bitmap on screen at x y coordinates
+GXR 3 EMIT 2EMIT 2EMIT ;
 
-: LOAD-BITMAP ( pathtofile tempspace w h n --- data w h )
+: LOAD-BITMAP ( pathtofile tempspace width height bitmap_number --- data width height )
 SELECT-BITMAP 
 4 ROLL 4 ROLL
 OSSTRING >ASCIIZ  
@@ -77,7 +86,7 @@ OSSTRING
 R> R> R>
 LOAD-BITMAP-RGB ;
 
-: INIT ( ---)
+: INIT ( ---) \ load bitmaps into sprites
 9 to level
 S" bitmaps/title.rgb" title 25 100 $01 LOAD-BITMAP
 S" bitmaps/wall.rgb" rgb bd DUP  $23 LOAD-BITMAP
@@ -103,7 +112,7 @@ map 640 OSSTRING ROT ROT 1 OSCALL -38 ?THROW \ load level into map
 
 
 
-: .MAP ( ---)
+: .MAP ( ---) \ print current map to screen
 PAGE
 20 0 DO
 32 0 DO
@@ -122,7 +131,7 @@ PAGE
 LOAD-MAP
 .MAP ;
 
-: .REFRESH ( ---)
+: .REFRESH ( ---) \ print modified current map to screen
 20 0 DO
 32 0 DO
 map i + j 32 * + C@
@@ -157,7 +166,7 @@ CASE
 10 OF DUP 32 + DUP 32 + ENDOF
 8 OF DUP 1- DUP 1- ENDOF
 21 OF DUP 1+ DUP 1+ ENDOF
-27 OF PAGE 1 to level 1 MODE CURON QUIT ENDOF \ esc
+27 OF PAGE 1 to level 1 MODE 1 CURSOR QUIT ENDOF \ esc
 114 OF START-LEVEL ENDOF \ r
 ENDCASE
 ;
@@ -217,7 +226,7 @@ ENDCASE
 ;
 
 
-: SPLASH ( ---)
+: .SPLASH ( ---) \ print splash screen
 PAGE
 10 10 AT-XY 3 FG ." Cursor Keys to move"
 14 14 AT-XY 3 FG ." ESC to QUIT"
@@ -227,7 +236,7 @@ PAGE
 50 105 DRAW-BITMAP
 KEY DROP ;
 
-: GAME-OVER ( ---)
+: .GAME-OVER ( ---) \ print game over screen
 PAGE
 12 10 AT-XY 1 FG ." Game Over "
 KEY
@@ -236,9 +245,9 @@ DROP ;
 
 : SOKO ( --)
 INIT
-2 MODE
-CUROFF
-SPLASH
+8 MODE
+0 CURSOR
+.SPLASH
 BEGIN
 START-LEVEL
 BEGIN
@@ -252,8 +261,8 @@ UNTIL
 level 1+ to level
 level 11 =
 UNTIL
-GAME-OVER
-CURON
+.GAME-OVER
+1 CURSOR
 1 MODE
 ;
 
