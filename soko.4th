@@ -86,8 +86,7 @@ OSSTRING
 R> R> R>
 LOAD-BITMAP-RGB ;
 
-: INIT ( ---) \ load bitmaps into sprites
-9 to level
+: INIT ( ---) \ load bitmaps
 S" bitmaps/title.rgb" title 25 100 $01 LOAD-BITMAP
 S" bitmaps/wall.rgb" rgb bd DUP  $23 LOAD-BITMAP
 S" bitmaps/blank.rgb" rgb bd DUP $0 LOAD-BITMAP
